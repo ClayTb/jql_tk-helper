@@ -3,6 +3,7 @@
 #date: 2020-4-22
 #purpose: 将梯控数据发送到云端，接收云端控梯指令
 #增加监控功能
+#2020-6-1: 软件架构优化, 将文件归类
   
 */
 #include "mqtt.h"
@@ -22,13 +23,6 @@ int main(void)
     log(6, "tk-helper version V4.0 2020-5-25-17:27\n");
     printf("tk-helper version V4.0 2020-5-25-17:27\n");
 
-//初始化和梯控云端的通信
-    if(cloudSetup() != 0)
-    {
-        log(3,"云端初始化失败");
-        return 1;
-    }
-
 
     //2. 建立处理云端数据线程cmd
     thread (cloudThread).detach();
@@ -38,17 +32,9 @@ int main(void)
     thread (localRspThread).detach();
     //检测config有没有被改动的线程
     thread (readConfigThread).detach();
-    return 0;
 
 
 
-    
-
-    //初始化云端mqtt，需要把状态以及回复publish到云端，并订阅cmd
-    mqtt_setup_cloud();
-    //初始化本地mqtt，订阅楼层信息以及梯控的回复转发到云端
-    //另外把消息压入队列来监控电梯
-    mqtt_setup_local();
     //OTA 线程
     thread (otaThread).detach();
     //监控模块

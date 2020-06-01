@@ -10,8 +10,6 @@
 //{"ID":"", "hostname":"", "msg":"", "timestamp":""}
 //string state, state_last, door, door_last;
 
-
-
 #include "mqtt.h"
 
 //#include <boost/timer/timer.hpp>
@@ -82,105 +80,6 @@ void cloud_connect_callback(struct mosquitto *mosq, void *userdata, int result)
     }
 }
 
-//和云端通信
-//mqtt也需要和本地通信，发送复位到1楼消息
-void mqtt_setup_alicloud()
-{
-    cout<<"set up cloud mqtt\n";
-    log(6,"set up cloud mqtt");
-    //云端IP
-    //char *host = "120.78.152.73";
-    int port = 1883;
-    int keepalive = 60;
-    bool clean_session = true;
-  
-    mosquitto_lib_init();
-    mosq_c = mosquitto_new(NULL, clean_session, NULL);
-    if(!mosq_c){
-        fprintf(stderr, "Error: Out of memory.\n");
-        exit(1);
-    }
-  
-    mosquitto_log_callback_set(mosq_c, mosq_log_callback);
-    mosquitto_connect_callback_set(mosq_c, cloud_connect_callback);
-    //mosquitto_subscribe_callback_set(mosq_c, my_subscribe_callback);
-    //mosquitto_message_callback_set(mosq_c, cloudEleThread);
-//只需要建立连接
-    if(mosquitto_connect(mosq_c, remote_host.c_str(), port, keepalive)){
-        fprintf(stderr, "Unable to connect cloud.\n");
-        log(4, "Unable to connect cloud");
-        //这里出现一个问题，就是4g路由器还没有完全能联网，导致这里整个程序就退出了
-        //exit(1);
-        //
-    }
-    mosquitto_reconnect_delay_set(mosq_c, 5, 30, true);
-    int loop = mosquitto_loop_start(mosq_c);
-    if(loop != MOSQ_ERR_SUCCESS){
-        fprintf(stderr, "Unable to start loop: %i\n", loop);
-        log(3, "Unable to start loop: %i", loop);
-        exit(1);
-    }
-    
-}
-
-//{"ID":"", "hostname":"", "msg":"", "timestamp":""}
-//2020-3-27 这里检测状态和电梯门状态，目的是为了检测出是否在维修
-void checkEle()
-{
-    Json::Value rsp;
-    Json::StreamWriterBuilder builder;
-    builder["indentation"] = ""; // If you want whitespace-less output
-    rsp["hostname"] = hostname;
-    rsp["timestamp"] = getTimeStamp();
-    rsp["ID"] = ID;
-    time_t t = ele["door"].second.getStartedTime();
-
-
-    if(ele["state"].second.getStartedTime() > STATETIMEOUT)
-    {
-        //2020-4-3：这里只根据一直上行或下行来判断是否在维护
-        //这里一直报警没有问题
-        //只有在up down的时候才会计时
-        //if(ele["state"].first.compare("stop") != 0)
-        {
-            rsp["msg"] = "电梯状态超时，可能在维护";
-            printf("电梯状态超时，可能在维护\n");
-            log(3,"电梯状态超时，可能在维护");
-            //发送成功给云端
-            string data = Json::writeString(builder, rsp)+'\n';
-            ele_monitor_q.push(data);
-            //停止计时
-            if(ele["state"].second.getStatus() == STARTED)
-            {
-                ele["state"].second.stop();
-            }
-        }
-    }
-    if(  t  > DOORTIMEOUT)
-    {
-        //这里没有问题，因为在报一次错误之后，会重新计时
-        //只有开门的时候才开始计时，所以这里不需要判断是不是开门
-        //if(ele["door"].first.compare("opened") == 0)
-        {
-            rsp["msg"] = "电梯门开门状态超时";
-            log(3,"电梯开门状态超时");
-            //发送成功给云端
-            string data = Json::writeString(builder, rsp)+'\n';
-            ele_monitor_q.push(data);
-            //停止计时
-            if(ele["door"].second.getStatus() == STARTED)
-            {
-                ele["door"].second.stop();
-            }
-        }
-    }
-
-    rsp["msg"] = "heartbeat";
-    //无论上面有没有错误信息要发送，都要发送一个heartbeat
-    string data = Json::writeString(builder, rsp)+'\n';
-    ele_monitor_q.push(data);
-
-}
 
 int monitorEleState()
 {
@@ -258,4 +157,30 @@ int eleAliCloudThread()
 
     }
     return 1;
+}
+
+
+int eleMonitorThread(void)
+{
+    //2. 先建立与ali私有监控云端线程，因为要初始化ele map数组
+    thread (eleAliCloudThread).detach();
+    //初始化云端mqtt，需要把错误状态publish到云端
+    mqtt_setup_alicloud();
+    //初始化本地mqtt，订阅楼层信息
+    //无须再订阅本地消息，另外一个线程已经订阅了并把消息压入队列了
+    //mqtt_setup_local();
+    //建立本地解析监控电梯数据的线程
+    thread (monitorEleState).detach();
+
+
+    //3. 不断检测是不是有错误要上报
+    while(1)
+    {
+        //sleep xs
+        std::this_thread::sleep_for(chrono::seconds(CHECKTIME)); 
+        checkEle();     
+    }
+    
+    return 0;
+    
 }

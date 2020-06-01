@@ -212,3 +212,65 @@ int parseEle(string pkt)
 
     return 0;
 }
+
+
+//{"ID":"", "hostname":"", "msg":"", "timestamp":""}
+//2020-3-27 这里检测状态和电梯门状态，目的是为了检测出是否在维修
+void checkEle()
+{
+    Json::Value rsp;
+    Json::StreamWriterBuilder builder;
+    builder["indentation"] = ""; // If you want whitespace-less output
+    rsp["hostname"] = hostname;
+    rsp["timestamp"] = getTimeStamp();
+    rsp["ID"] = ID;
+    time_t t = ele["door"].second.getStartedTime();
+
+
+    if(ele["state"].second.getStartedTime() > STATETIMEOUT)
+    {
+        //2020-4-3：这里只根据一直上行或下行来判断是否在维护
+        //这里一直报警没有问题
+        //只有在up down的时候才会计时
+        //if(ele["state"].first.compare("stop") != 0)
+        {
+            rsp["msg"] = "电梯状态超时，可能在维护";
+            printf("电梯状态超时，可能在维护\n");
+            log(3,"电梯状态超时，可能在维护");
+            //发送成功给云端
+            string data = Json::writeString(builder, rsp)+'\n';
+            ele_monitor_q.push(data);
+            //停止计时
+            if(ele["state"].second.getStatus() == STARTED)
+            {
+                ele["state"].second.stop();
+            }
+        }
+    }
+    if(  t  > DOORTIMEOUT)
+    {
+        //这里没有问题，因为在报一次错误之后，会重新计时
+        //只有开门的时候才开始计时，所以这里不需要判断是不是开门
+        //if(ele["door"].first.compare("opened") == 0)
+        {
+            rsp["msg"] = "电梯门开门状态超时";
+            log(3,"电梯开门状态超时");
+            //发送成功给云端
+            string data = Json::writeString(builder, rsp)+'\n';
+            ele_monitor_q.push(data);
+            //停止计时
+            if(ele["door"].second.getStatus() == STARTED)
+            {
+                ele["door"].second.stop();
+            }
+        }
+    }
+
+    rsp["msg"] = "heartbeat";
+    //无论上面有没有错误信息要发送，都要发送一个heartbeat
+    string data = Json::writeString(builder, rsp)+'\n';
+    ele_monitor_q.push(data);
+
+}
+
+

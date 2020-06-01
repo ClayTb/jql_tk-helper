@@ -1,8 +1,68 @@
-#include "workerthread.h"
-#include "mqtt.h"
-#include "misc.h"
+string autoTime;
+string ID;
 
+
+#include <sys/inotify.h>
+#include <limits.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/types.h>
+#include "misc.h"
+#include <iostream>
+#include <fstream>
 using namespace std;
+
+
+int readAuto()
+{
+    std::string path;
+    path.append("/home/tikong/production/config.ini");
+    ifstream sup(path);
+
+    if(!sup.is_open())
+    {
+        return 1;
+    }
+    std::string line;
+    while(getline(sup, line))
+    {
+       if(line.find("AUTO_OPEN") != std::string::npos)
+       {
+            //cout << line << endl;
+            auto delimeterPos = line.find(":");
+            auto key = line.substr(0, delimeterPos);
+            auto value = line.substr(delimeterPos+1);
+            //cout << line << endl;
+            if (key.compare("AUTO_OPEN") == 0)
+            {
+                //去除换行
+                //mcu_ser = value.substr(0,value.length()-1);
+                //mcu_ser = value;
+                autoTime = value;
+                cout<< "AUTO_OPEN: "<<autoTime.c_str()<< endl;
+                log(6, "AUTO_OPEN: %s", autoTime.c_str());
+            }
+            else if (key.compare("ID") == 0)
+            {
+                ID = value;
+                cout << "ID: " << ID << endl;
+                log(6, "ID: %s", ID.c_str());
+            }  
+        }
+
+    }//结束读取文件
+    if(autoTime.empty())
+    {
+        log(3, "没有找到AUTO_OPEN");
+        printf("没有找到AUTO_OPEN\n");
+        //直接退出
+        exit(2);
+    }
+    return 0;
+}
+
 string MAC;
 string hostname;
 int cloudSetup()
@@ -21,133 +81,6 @@ int cloudSetup()
     cout << "云端cmd topic：" << CCMD << endl;
     //cmd_resp/:ProductName/:DeviceName/:CommandName/:RequestID/:MessageID
     CRSP = CRSP + MAC +"/";
-}
-
-//把云端的命令下发下去
-int cloudThread()
-{
-    //数据pop出来
-    cout<<"send cloud cmd thread\n";
-    log(6,"send cloud cmd thread");
-    string data, ldata;
-    int ret = -1;
-    while(1) 
-    {      
-        //无论本地是否已经连接，都pop出来命令
-        if(!local_q.queue_.empty())
-        {
-
-            data = local_q.pop();
-            //先解析一下，再发给本地梯控
-            if(parseCloud(data))
-            {
-                ret = mqtt_send(mosq_l, LCMD, data.c_str());
-                if(ret != 0)
-                {
-                    //如果本地没有连接，这里也会报错
-                    log(4, "mqtt_send local error=%i\n", ret);
-                }
-            }
-            else
-            {
-                log(4, "云端数据出错");
-            }
-        }
-        else
-        {
-            std::this_thread::sleep_for(chrono::milliseconds(10)); 
-        }            
-
-    }
-    return 1;
-}
-
-int REGISTERED = 0;
-/*0：未呼梯 1：已经呼梯 2：已经自动开门，当已经开门，但是检测到楼层已经过了，就取消开门，要不然电梯在运行的时候开门键一直按着
-*/
-//发送电梯状态线程
-int localStateThread()
-{
-	//数据pop出来
-	srand(time(0));
-    cout<<"send state msg thread\n";
-    log(6,"send state msg thread");
-    string data, topic;
-    int ret = -1;
-    //数据pop出来，转换成云端数据
-    while(1) 
-    {                       
-        //if(connected_c == 1 && !cloud_state_q.queue_.empty())
-        //发送给云端这里要判断是否有连接，要不然mqtt_send会一直报错
-        if(connected_c == 1)
-        {
-            //data = cloud_state_q.pop();
-            data = cloud_state;
-            topic = "upload_data/IotApp/"+MAC+"/sample/"+randomstring(26);
-            ret = mqtt_send(mosq_c, topic,data.c_str());
-            //cout << topic << ": " << data << endl;
-            if(ret != 0)
-            {
-                log(4, "mqtt_send cloud state error=%i\n", ret);
-				connected_c = 0;
-            }             
-        }
-        else
-        {
-            std::this_thread::sleep_for(chrono::milliseconds(10)); 
-            //sleep(1);
-        }    
-        //这里去检测是否到了目的楼层，然后自动开门10s
-        if(REGISTERED == 1)
-        {
-            autoOpen(cloud_state); 
-        }
-        //自动开门之后，不断去检测现在电梯状态
-        //else if(2 == REGISTERED)
-        //{
-        //    cancelAuto(cloud_state);
-        //}
-        //定时300ms发送       
-        std::this_thread::sleep_for(chrono::milliseconds(300)); 
-        
-
-
-    }
-    return 0;
-}
-
-//发送电梯回复指令线程
-int localRspThread()
-{
-	//数据pop出来
-    cout<<"send rsp msg thread\n";
-    log(6,"send rsp msg thread");
-    std::string data, topic;
-    int ret = -1;
-    //数据pop出来，转换成云端数据
-    while(1) 
-    {                       
-        if(connected_c == 1 && !cloud_rsp_q.queue_.empty())
-        {
-            //cmd_resp/:ProductName/:DeviceName/:CommandName/:RequestID/:MessageID
-            topic = CRSP+randomstring(26)+"/"+randomstring(10);
-            //cout << topic << endl;
-            data = cloud_rsp_q.pop();
-            ret = mqtt_send(mosq_c, topic,data.c_str());
-            log(6, "%s : %s", topic.c_str(),data.c_str());
-            if(ret != 0)
-            {
-                log(4, "mqtt_send cloud rsp error=%i\n", ret);
-            }             
-        }
-        else
-        {
-            std::this_thread::sleep_for(chrono::milliseconds(10)); 
-            //sleep(1);
-        }            
-
-    }
-    return 0;
 }
 
 /*
@@ -310,61 +243,4 @@ void  registerFloor(string floor)
     cout << "register " << floor << endl;
     regFloor = floor;
     REGISTERED = 1;
-}
-
-
-//增加实时读取config
-int readConfigThread(void)
-{
-    struct stat file_stat;
-    int err;
-    time_t   mtime_now, mtime_pre;
-    cout << "readConfigThread beigin" << endl;
-    //这里使用文件修改时间参数
-    while(1)
-    {
-        err = stat("/home/tikong/production/config.ini", &file_stat);
-        if(err != 0)
-        {
-            perror("stat");
-            log(3,"stat error");   
-            return 1;
-        }
-        mtime_now = file_stat.st_mtime;
-        if(mtime_now != mtime_pre)
-        {
-            printf("file changed, reload\n");
-            log(4, "file changed, reload\n");
-            mtime_pre = mtime_now;
-            readAuto();
-        }
-        std::this_thread::sleep_for(chrono::seconds(3));
-    }
-  return 0;
-}
-
-
-int eleMonitorThread(void)
-{
-    //2. 先建立与ali私有监控云端线程，因为要初始化ele map数组
-    thread (eleAliCloudThread).detach();
-    //初始化云端mqtt，需要把错误状态publish到云端
-    mqtt_setup_alicloud();
-    //初始化本地mqtt，订阅楼层信息
-    //无须再订阅本地消息，另外一个线程已经订阅了并把消息压入队列了
-    //mqtt_setup_local();
-    //建立本地解析监控电梯数据的线程
-    thread (monitorEleState).detach();
-
-
-    //3. 不断检测是不是有错误要上报
-    while(1)
-    {
-        //sleep xs
-        std::this_thread::sleep_for(chrono::seconds(CHECKTIME)); 
-        checkEle();     
-    }
-    
-    return 0;
-    
 }
