@@ -64,27 +64,27 @@ int eleAliCloudThread()
         {
             //不管云端有没有离线，都要把数据pop出来
             data = ele_monitor_q.pop();
-            if(connected_c == 1)
+            if(connected_m == 1)
             {
                 fnd = data.find("heartbeat"); 
                 if (fnd!=std::string::npos)
                 {
-                    ret = mqtt_send(mosq_c, topic.find("heartbeat")->second, data.c_str());
+                    ret = mqtt_send(mosq_m, topic.find("heartbeat")->second, data.c_str());
                     if(ret != 0)
                     {
                         //4g路由器半夜会重启，会导致这里发送出错
                         //但是一旦连上之后，mqtt会自动再去连接，这里发送就不会有问题了
                         log(4, "mqtt_send error=%i\n", ret);
-                        connected_c = 0;
+                        connected_m = 0;
                     }
                 }
                 else
                 {         
-                    ret = mqtt_send(mosq_c, topic.find("err")->second,data.c_str());
+                    ret = mqtt_send(mosq_m, topic.find("err")->second,data.c_str());
                     if(ret != 0)
                     {
                         log(4, "mqtt_send error=%i\n", ret);
-                        connected_c = 0;
+                        connected_m = 0;
                     }   
                 }       
             }      

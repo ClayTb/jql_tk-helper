@@ -12,13 +12,13 @@ int mqtt_send(struct mosquitto *mosq, string topic, const char *msg);
 //#include <boost/timer/timer.hpp>
 extern Queue<string> cloud_state_q, cloud_rsp_q;
 extern Queue<string> local_q;
-extern string CRSP ;
+extern string CRSP;
 extern string cloud_state;
 extern struct mosquitto *mosq_l, *mosq_c;
 
 extern int connected_l, connected_c;
 
-//extern const char* LCMD;
+extern const char* LCMD;
 extern const char* LRSP ;
 extern const char* LSTATE ;
 

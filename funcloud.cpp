@@ -1,5 +1,4 @@
-string autoTime;
-string ID;
+
 
 
 #include <sys/inotify.h>
@@ -12,8 +11,24 @@ string ID;
 #include "misc.h"
 #include <iostream>
 #include <fstream>
+#include "mqttcloud.h"
 using namespace std;
 
+
+string floor = "unknown";
+string door = "unknown";
+string regFloor = "unknown";
+
+
+string autoTime;
+string ID;
+int REGISTERED = 0;
+void  registerFloor(string floor)
+{
+    cout << "register " << floor << endl;
+    regFloor = floor;
+    REGISTERED = 1;
+}
 
 int readAuto()
 {
@@ -63,25 +78,7 @@ int readAuto()
     return 0;
 }
 
-string MAC;
-string hostname;
-int cloudSetup()
-{
-    //初始化和云端的通信
-    MAC = getMac();
-    hostname = exec("hostname");
-    if(macOK(MAC) != 5)
-    {
-        log(3, "mac 错误");
-        return 1;
-    }
-    //"cmd/IotApp/fa:04:39:46:16:2b/+/+/+/#"
-    //string CMD = "cmd/IotApp/";
-    CCMD = CCMD + MAC +"/+/+/+/#";
-    cout << "云端cmd topic：" << CCMD << endl;
-    //cmd_resp/:ProductName/:DeviceName/:CommandName/:RequestID/:MessageID
-    CRSP = CRSP + MAC +"/";
-}
+
 
 /*
 {"ID":"", "requestID":"", "cmd":"call", "floorNum":""}
@@ -148,9 +145,6 @@ bool parseCloud(string data)
     return true;
 }
 
-string floor = "unknown";
-string door = "unknown";
-string regFloor = "unknown";
 
 
 void autoOpen(string state)
@@ -238,9 +232,4 @@ void cancelAuto(string state)
     }
 }
 
-void  registerFloor(string floor)
-{
-    cout << "register " << floor << endl;
-    regFloor = floor;
-    REGISTERED = 1;
-}
+

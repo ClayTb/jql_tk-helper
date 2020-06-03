@@ -1,48 +1,25 @@
 #include "misc.h"
 #include "mqttcloud.h"
+#include "mqtt.h"
 
 //#include <boost/timer/timer.hpp>
 //monitor_state_q 是为了给monitor线程使用的
 Queue<string> monitor_state_q, cloud_rsp_q;
 Queue<string> local_q;
 
-/**公共函数开始**/
-void mosq_log_callback(struct mosquitto *mosq, void *userdata, int level, const char *str)
-{
-    /* Pring all log messages regardless of level. */
-  
-  switch(level){
-    //待查 TODO
-    //case MOSQ_LOG_DEBUG:
-    //case MOSQ_LOG_INFO:
-    //case MOSQ_LOG_NOTICE:
-    case MOSQ_LOG_WARNING:
-    case MOSQ_LOG_ERR: {
-      log(4, "%i:%s\n", level, str);
-    }
-  }  
-}
+/*
+std::map<string, string> cloud_topic = {
+    //{ "state", "upload_data/IotApp/fa:04:39:46:16:2b/sample/5e9d86a893c2a0bf5069ffe888" },
+    { "state", "upload_data/IotApp/" },
+    //{ "cmd", "cmd/IotApp/fa:04:39:46:16:2b/+/+/+/#"}, 
+    { "cmd", "cmd/IotApp/"}, 
+};*/
+string CSTATE = "upload_data/IotApp/";
+string CCMD = "cmd/IotApp/";
+//cmd_resp/:ProductName/:DeviceName/:CommandName/:RequestID/:MessageID
+string CRSP = "cmd_resp/IotApp/";
 
-//订阅成功后的callback
-void my_subscribe_callback(struct mosquitto *mosq, void *userdata, int mid, int qos_count, const int *granted_qos)
-{
-    //Subscribed (mid: 1): 0 1
-//Subscribed (mid: 2): 0 1
-//Subscribed (mid: 1): 128 1
-    int i;
-    printf("Subscribed (mid: %d): %d %d", mid, granted_qos[0], qos_count);
-    log(6, "Subscribed (mid: %d): %d %d", mid, granted_qos[0], qos_count);
-    for(i=1; i<qos_count; i++){
-        printf(", %d", granted_qos[i]);
-        log(6, ", %d", granted_qos[i]);
-    }
-    printf("\n");
-}
-//TOTO: 这里qos都是0
-int mqtt_send(struct mosquitto *mosq, string topic, const char *msg){
-  return mosquitto_publish(mosq, NULL, topic.c_str(), strlen(msg), msg, 0, 0);
-}
-/****公共函数结束***/
+
 
 
 
@@ -167,20 +144,30 @@ void cloud_message_callback(struct mosquitto *mosq, void *userdata, const struct
     }
 }
 
-//这里去订阅楼层信息
-/*
-std::map<string, string> cloud_topic = {
-    //{ "state", "upload_data/IotApp/fa:04:39:46:16:2b/sample/5e9d86a893c2a0bf5069ffe888" },
-    { "state", "upload_data/IotApp/" },
-    //{ "cmd", "cmd/IotApp/fa:04:39:46:16:2b/+/+/+/#"}, 
-    { "cmd", "cmd/IotApp/"}, 
-};*/
-string CSTATE = "upload_data/IotApp/";
-string CCMD = "cmd/IotApp/";
-//cmd_resp/:ProductName/:DeviceName/:CommandName/:RequestID/:MessageID
-string CRSP = "cmd_resp/IotApp/";
+string MAC;
+//string hostname;
+int cloudSetup()
+{
+    //初始化和云端的通信
+    MAC = getMac();
+    hostname = exec("hostname");
+    if(macOK(MAC) != 5)
+    {
+        log(3, "mac 错误");
+        return 1;
+    }
+    //"cmd/IotApp/fa:04:39:46:16:2b/+/+/+/#"
+    //string CMD = "cmd/IotApp/";
+    CCMD = CCMD + MAC +"/+/+/+/#";
+    cout << "云端cmd topic：" << CCMD << endl;
+    //cmd_resp/:ProductName/:DeviceName/:CommandName/:RequestID/:MessageID
+    CRSP = CRSP + MAC +"/";
+}
 
-void cloud_connect_callback(struct mosquitto *mosq, void *userdata, int result)
+
+//这里去订阅楼层信息
+
+static void cloud_connect_callback(struct mosquitto *mosq, void *userdata, int result)
 {
     if(!result){
         printf("cloud connected success\n");

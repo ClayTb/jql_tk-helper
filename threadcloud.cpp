@@ -5,12 +5,7 @@
 
 using namespace std;
 
-int cloudSetup()
-{
-       //2. 建立处理云端数据线程cmd
-    thread (cloudThread).detach();
 
-}
 const char* LCMD = "/cti/ele/cmd";
 const char* LRSP = "/cti/ele/cmd-rsp";
 const char* LSTATE = "/cti/ele/state";
@@ -62,7 +57,6 @@ int cloudThread()
     return 1;
 }
 
-int REGISTERED = 0;
 /*0：未呼梯 1：已经呼梯 2：已经自动开门，当已经开门，但是检测到楼层已经过了，就取消开门，要不然电梯在运行的时候开门键一直按着
 */
 //发送电梯状态线程
