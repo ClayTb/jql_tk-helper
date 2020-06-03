@@ -1,10 +1,9 @@
-#include "mqtt.h"
 #include "misc.h"
-#include <mosquitto.h>
-#include <jsoncpp/json/json.h>
-#include <string.h>  //strlen
+#include "mqttcloud.h"
+
 //#include <boost/timer/timer.hpp>
-Queue<string> cloud_state_q, cloud_rsp_q;
+//monitor_state_q 是为了给monitor线程使用的
+Queue<string> monitor_state_q, cloud_rsp_q;
 Queue<string> local_q;
 
 /**公共函数开始**/
@@ -50,9 +49,6 @@ int mqtt_send(struct mosquitto *mosq, string topic, const char *msg){
 /***本地mqtt部分***/
 struct mosquitto *mosq_l = NULL;
 int connected_l = 0;
-const char* LCMD = "/cti/ele/cmd";
-const char* LRSP = "/cti/ele/cmd-rsp";
-const char* LSTATE = "/cti/ele/state";
 string cloud_state;
 
 void local_callback(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *message)

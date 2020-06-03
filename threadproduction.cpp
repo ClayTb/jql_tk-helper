@@ -1,5 +1,6 @@
-#include "productionthread.h"
-
+#include "threadproduction.h"
+#include <thread>
+#include "misc.h"
 int productionThread()
 {
     while(1)

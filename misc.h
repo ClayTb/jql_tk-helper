@@ -2,7 +2,10 @@
 #define _LOG_H
 #include <iostream>
 #include <string>
+#include <string.h>  //strlen
 #include <jsoncpp/json/json.h>
+#include <chrono>
+
 
 using namespace std;  
 void log(int level, const char *format...);
@@ -13,6 +16,9 @@ std::string exec(const char* cmd);
 void init_signals(void);
 bool isNum(string str);  
 string getTimeStamp();
+extern string MAC;
+extern string hostname;
+extern string remote_host;
 
 
 #include <queue>
@@ -66,6 +72,7 @@ class Queue
   std::mutex mutex_;
   std::condition_variable cond_;
 };
+extern Queue<string> monitor_state_q;
 
 extern string autoTime, ID;
 

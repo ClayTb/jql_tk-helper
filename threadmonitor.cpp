@@ -4,6 +4,7 @@
 //#include "mqtt.h"
 #include "misc.h"
 #include "funmonitor.h"
+#include "mqttmonitor.h"
 
 //{"ID":"", "floorNum":"", "state":"", "door":"", "floorNum_r" : ""}
 //{"ID":"", "hostname":"", "msg":"", "timestamp":""}
@@ -12,6 +13,14 @@
 #include "mqttmonitor.h"
 
 //#include <boost/timer/timer.hpp>
+
+//err这个topic的定义：{"ID":hostname, "timestamp":"", "error":"楼层突变"}
+ //后期把heartbeat和error合成一个包，服务器端去区分
+std::map<string, string> topic = {
+    { "state", "/cti/ele/state" },
+    { "heartbeat", "/cti/ele/hb" },
+    { "err", "/cti/ele/error1" }, //这里是为了不收到之前已经部署的监控程序发过来的消息
+};
 
 
 int monitorEleState()
@@ -45,8 +54,6 @@ int eleAliCloudThread()
     log(6,"send cloud data thread");
     std::string data, data_last;
     int ret = -1;
-    ele.insert(std::make_pair("state", make_pair("unknown", ts)));
-    ele.insert(std::make_pair("door", make_pair("unknown", td)));
     hostname = exec("hostname");
     //去除最后的换行 pop_back()
     hostname.pop_back();

@@ -11,7 +11,9 @@ int cloudSetup()
     thread (cloudThread).detach();
 
 }
-
+const char* LCMD = "/cti/ele/cmd";
+const char* LRSP = "/cti/ele/cmd-rsp";
+const char* LSTATE = "/cti/ele/state";
 //把云端的命令下发下去
 int cloudThread()
 {

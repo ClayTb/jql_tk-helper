@@ -1,6 +1,7 @@
 #include "misc.h"
 #include "timer.h"
 #include <jsoncpp/json/json.h>
+#include "funmonitor.h"
 /*
 struct ELESTATE
 {
@@ -18,11 +19,15 @@ eleState.state_last = "unknown";
 eleState.door_last = "unknown";
 eleState.errType = 0;*/
 
+Timer ts;
+Timer td; 
 int floor_last = 0;
 string state_last = "unknown";
 string door_last = "unknown";
 int errType = 0;
+string hostname;
 
+std::map<string, pair<string,Timer> > ele;
 
 Queue<string> ele_monitor_q;
 
@@ -226,10 +231,9 @@ void checkEle()
     rsp["hostname"] = hostname;
     rsp["timestamp"] = getTimeStamp();
     rsp["ID"] = ID;
-    time_t t = ele["door"].second.getStartedTime();
 
 
-    if(ele["state"].second.getStartedTime() > STATETIMEOUT)
+    if(ts.getStartedTime() > STATETIMEOUT)
     {
         //2020-4-3：这里只根据一直上行或下行来判断是否在维护
         //这里一直报警没有问题
@@ -243,13 +247,13 @@ void checkEle()
             string data = Json::writeString(builder, rsp)+'\n';
             ele_monitor_q.push(data);
             //停止计时
-            if(ele["state"].second.getStatus() == STARTED)
+            if(ts.getStatus() == STARTED)
             {
-                ele["state"].second.stop();
+                ts.stop();
             }
         }
     }
-    if(  t  > DOORTIMEOUT)
+    if(  td.getStartedTime()  > DOORTIMEOUT)
     {
         //这里没有问题，因为在报一次错误之后，会重新计时
         //只有开门的时候才开始计时，所以这里不需要判断是不是开门
@@ -261,7 +265,7 @@ void checkEle()
             string data = Json::writeString(builder, rsp)+'\n';
             ele_monitor_q.push(data);
             //停止计时
-            if(ele["door"].second.getStatus() == STARTED)
+            if(td.getStatus() == STARTED)
             {
                 ele["door"].second.stop();
             }
@@ -274,5 +278,3 @@ void checkEle()
     ele_monitor_q.push(data);
 
 }
-
-

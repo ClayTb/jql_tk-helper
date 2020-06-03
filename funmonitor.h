@@ -1,5 +1,5 @@
-#ifndef _MFUN_H
-#define _MFUN_H
+#ifndef _FUNM_H
+#define _FUNM_H
 
 #include <string>
 using namespace std;
@@ -11,6 +11,9 @@ void checkEle();
 //开门超过2分钟认为有问题
 #define DOORTIMEOUT 2*60
 #define CHECKTIME 3
+
+extern string hostname;
+extern Queue<string> ele_monitor_q;
 
 
 #endif
