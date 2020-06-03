@@ -2,5 +2,8 @@
     "files.exclude": {
         "**/*.d": true,
         "**/*.o": true
+    },
+    "files.associations": {
+        "thread": "cpp"
     }
 }

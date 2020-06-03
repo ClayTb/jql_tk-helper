@@ -137,6 +137,7 @@ void mqtt_setup_local()
         log(3,"Unable to connect local.");
 		//exit(2);
 	}
+    //都已经添加重连时间设置
     mosquitto_reconnect_delay_set(mosq_l, 5, 30, true);
 
     //已经连接上的全局变量

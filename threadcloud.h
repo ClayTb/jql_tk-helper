@@ -1,5 +1,5 @@
-#ifndef _THREAD_h
-#define _THREAD_h
+#ifndef _CTHREAD_H
+#define _CTHREAD_H
 #include <stdio.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,10 +15,5 @@ int localRspThread();
 int cloudThread();
 //和梯控云端通信
 int cloudSetup();
-bool parseCloud(string data);
-void registerFloor(string floor);
-void autoOpen(string state);
-int readConfigThread(void);
-int eleMonitor(void);
 
 #endif

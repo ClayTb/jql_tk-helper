@@ -1,16 +1,30 @@
-#include "workerthread.h"
-#include "mqtt.h"
+#include "threadcloud.h"
+#include "mqttcloud.h"
 #include "misc.h"
+#include "funcloud.h"
 
 using namespace std;
 
+int cloudSetup()
+{
+       //2. 建立处理云端数据线程cmd
+    thread (cloudThread).detach();
+
+}
 
 //把云端的命令下发下去
 int cloudThread()
 {
     //初始化云端mqtt，需要把状态以及回复publish到云端，并订阅cmd
     mqtt_setup_cloud();
+    //3. 消耗处理state消息，发给云端
+    thread (localStateThread).detach();
+    //处理消耗cmd rsp消息，发给云端
+    thread (localRspThread).detach();
+    //检测config有没有被改动的线程
+    thread (readConfigThread).detach();
 
+    
     //数据pop出来
     cout<<"send cloud cmd thread\n";
     log(6,"send cloud cmd thread");

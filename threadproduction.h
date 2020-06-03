@@ -1,4 +1,4 @@
-#ifndef _MTHREAD_h
-#define _MTHREAD_h
-int monitorEleState();
+#ifndef _PTHREAD_h
+#define _PTHREAD_h
+int productionThread();
 #endif
