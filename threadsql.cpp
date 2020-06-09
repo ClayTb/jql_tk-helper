@@ -43,7 +43,7 @@ int sqlParse(string pkt)
 
     if(!value["floorNum_r"].isNull())
     {
-        floo = value["state"].asString();
+        floo = value["floorNum_r"].asString();
     }
 
     if(!value["state"].isNull())
@@ -192,12 +192,64 @@ void mqtt_setup_sql()
 }
 /***本地mqtt部分结束**/
 
+#include <sys/inotify.h>
+#include <limits.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/types.h>
+#include "misc.h"
+#include <iostream>
+#include <fstream>
+
+
+string sqlID;
+
+int readID()
+{
+    std::string path;
+    path.append("/home/tikong/production/config.ini");
+    ifstream sup(path);
+
+    if(!sup.is_open())
+    {
+        return 1;
+    }
+    std::string line;
+    while(getline(sup, line))
+    {
+        //cout << line << endl;
+        auto delimeterPos = line.find(":");
+        auto key = line.substr(0, delimeterPos);
+        auto value = line.substr(delimeterPos+1);
+        //cout << line << endl;
+        if (key.compare("ID") == 0)
+        {
+            sqlID = value;
+            cout << "ID: " << sqlID << endl;
+        }  
+        
+    }//结束读取文件
+    if(sqlID.empty())
+    {
+        //log(3, "没有找到AUTO_OPEN");
+        printf("没有找到AUTO_OPEN\n");
+        //直接退出
+        exit(2);
+    }
+    return 0;
+}
+
+
+
 int sqlThread()
 {
 
     MYSQL *conn;
     MYSQL_RES *res;
     MYSQL_ROW row;
+    readID();
     mqtt_setup_sql();
 
 
@@ -248,8 +300,8 @@ timestamp
         if(elechange == 1)
         {
             elechange = 0;
-            sprintf(mysql_command, "INSERT INTO  lift_state ( floor,door,state) VALUES (%s, %s, %s)", \
-                                    floo.c_str(), doo.c_str(), state.c_str() );
+            sprintf(mysql_command, "INSERT INTO  lift_state ( device_id, floor,door,state) VALUES ('%s', '%s', '%s', '%s')", \
+                                    sqlID.c_str(),floo.c_str(), doo.c_str(), state.c_str() );
             printf("%s\n", mysql_command);
             if (mysql_query(conn, mysql_command) != 0)
             {
@@ -274,8 +326,8 @@ timestamp
         if(cmdchange == 1)
         {
             cmdchange = 0;
-            sprintf(mysql_command, "INSERT INTO  lift_state (cmd, sender, callfloor) VALUES (%s, %s, %s)", \
-                                        cmd.c_str(), sender.c_str(), callfloor.c_str());
+            sprintf(mysql_command, "INSERT INTO  lift_state (device_id,cmd, sender, callfloor) VALUES ('%s', %s', '%s', '%s')", \
+                                        sqlID.c_str(), cmd.c_str(), sender.c_str(), callfloor.c_str());
             cmd = "";
             sender = "";
             callfloor = "";
