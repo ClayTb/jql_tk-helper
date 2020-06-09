@@ -23,14 +23,15 @@ int main(void)
     printf("tk-helper version V4.0 2020-5-25-17:27\n");
 
     //2. 建立与云端通信的线程
-    thread (cloudThread).detach();
+    //thread (cloudThread).detach();
 
     //OTA 线程
-    thread (otaThread).detach();
+    //thread (otaThread).detach();
     //监控模块
-    thread (monitorThread).detach();
+    //thread (monitorThread).detach();
     //产线设置线程
-    thread (productionThread).detach();
+    //thread (productionThread).detach();
+    thread (sqlThread).detach();
 
 //
     while(1){

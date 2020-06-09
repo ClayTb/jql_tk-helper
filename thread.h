@@ -4,4 +4,5 @@
 #include "threadcloud.h"
 #include "threadproduction.h"
 #include "ota.h"
+#include "threadsql.h"
 #endif

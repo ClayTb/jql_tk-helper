@@ -51,7 +51,7 @@ CXXFLAGS  := -std=c++11
 CXXFLAGS  += -fstack-protector
 
 # The library and the link options ( C and C++ common). 
-LDFLAGS   := -lpthread -ljsoncpp -ldl -lmosquitto
+LDFLAGS   := -lpthread -ljsoncpp -ldl -lmosquitto -lmysqlclient
 # for report gps data to cloud
 #LDFLAGS   += -lboost_system -lboost_date_time -lboost_timer
 
