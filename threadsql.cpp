@@ -114,6 +114,7 @@ void local_callback_sql(struct mosquitto *mosq, void *userdata, const struct mos
         }
         else if(strcmp(message->topic, SQLCMD) == 0)
         {
+            printf("got cmd\n");
             parseCmd(data);
         }
 
@@ -319,14 +320,14 @@ timestamp
             }
             else
             {
-                printf("insert ok\n");
+                printf("insert state ok\n");
             }
 
         }
         if(cmdchange == 1)
         {
             cmdchange = 0;
-            sprintf(mysql_command, "INSERT INTO  lift_state (device_id,cmd, sender, callfloor) VALUES ('%s', %s', '%s', '%s')", \
+            sprintf(mysql_command, "INSERT INTO  lift_state (device_id,cmd, sender, callfloor) VALUES ('%s', '%s', '%s', '%s')", \
                                         sqlID.c_str(), cmd.c_str(), sender.c_str(), callfloor.c_str());
             cmd = "";
             sender = "";
@@ -348,7 +349,7 @@ timestamp
             }
             else
             {
-                printf("insert ok\n");
+                printf("insert cmd ok\n");
             }
         }
 
