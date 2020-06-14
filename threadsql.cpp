@@ -14,6 +14,7 @@ const char* SQLCMD = "/cti/ele/cmd";
 //const char* LRSP = "/cti/ele/cmd-rsp";
 const char* SQLSTATE = "/cti/ele/state";
 
+Queue<string> sqlQueue;
 
 /*
 电梯编号 device_id char 5 （00116）
@@ -25,7 +26,7 @@ const char* SQLSTATE = "/cti/ele/state";
 呼梯楼层 callfloor  varchar 5 
 timestamp 
 */
-string id, floo, doo, state, cmd, sender, callfloor, timestamp;
+//string id, floo, doo, state, cmd, sender, callfloor, timestamp;
 int elechange = 0;
 int cmdchange = 0;
 
@@ -35,6 +36,7 @@ int sqlParse(string pkt)
     Json::Value value;
     int duration = 0;
     bool err = false;
+    string floor, state, door, mysql_command;
 
     if(!reader.parse(pkt, value))
     {
@@ -43,7 +45,7 @@ int sqlParse(string pkt)
 
     if(!value["floorNum_r"].isNull())
     {
-        floo = value["floorNum_r"].asString();
+        floor = value["floorNum_r"].asString();
     }
 
     if(!value["state"].isNull())
@@ -53,10 +55,13 @@ int sqlParse(string pkt)
 
     if(!value["door"].isNull())
     {
-        doo = value["door"].asString();
+        door = value["door"].asString();
        
     }
-    elechange = 1;
+    //判断状态是否有变化,如果有变化就加入队列
+    //elechange = 1;
+   sprintf(mysql_command, "INSERT INTO  lift_state ( device_id, floor,door,state) VALUES ('%s', '%s', '%s', '%s')", \
+                sqlID.c_str(),floor.c_str(), doo.c_str(), state.c_str() );
 
     return 0;
 }
@@ -65,6 +70,7 @@ int parseCmd(string pkt)
 {
     Json::Reader reader;
     Json::Value value;
+    string cmd, sender, callfloor;
 
     if(!reader.parse(pkt, value))
     {
@@ -76,7 +82,7 @@ int parseCmd(string pkt)
         cmd = value["cmd"].asString();
     }
 
-    if(!value["sender"].isNull())
+    if(!value["__sender"].isNull())
     {
         sender = value["sender"].asString();
     }
@@ -86,8 +92,12 @@ int parseCmd(string pkt)
         callfloor = value["floorNum_r"].asString();
        
     }
-
-    cmdchange = 1;
+    //加入队列
+    sprintf(mysql_command, "INSERT INTO  lift_state (device_id,cmd, sender, callfloor) VALUES ('%s', '%s', '%s', '%s')", \
+                            sqlID.c_str(), cmd.c_str(), sender.c_str(), callfloor.c_str());
+           
+    //cmdchange = 1;
+    //加上时间戳
     return 0;
 
 }
@@ -107,10 +117,8 @@ void local_callback_sql(struct mosquitto *mosq, void *userdata, const struct mos
         //放入云端队列，由云端线程处理 
         if(strcmp(message->topic, SQLSTATE) == 0)
         {
-            //压入队列，监控梯控
+            //
             sqlParse(data);
-            //给云端永远发送最新的状态
-            //cloud_state = data;
         }
         else if(strcmp(message->topic, SQLCMD) == 0)
         {
@@ -235,7 +243,7 @@ int readID()
     if(sqlID.empty())
     {
         //log(3, "没有找到AUTO_OPEN");
-        printf("没有找到AUTO_OPEN\n");
+        printf("没有找到ID\n");
         //直接退出
         exit(2);
     }
@@ -280,58 +288,12 @@ int sqlThread()
 呼梯楼层 callfloor  varchar 5 
 timestamp 
 */
-    
-    while (1)
-    {        
-        //sprintf(mysql_command, "INSERT INTO  lift_state ( device_id ) VALUES ('00116')");
-        if(elechange == 0 && cmdchange == 0)
+    while(1) 
+    {      
+        //无论本地是否已经连接，都pop出来命令
+        if(!sqlQueue.empty())
         {
-            continue;
-        }
-        /*if(elechange == 1 && cmdchange == 1)
-        {
-            elechange =0;
-            cmdchange = 0;
-            sprintf(mysql_command, "INSERT INTO  lift_state ( floor, door, state\
-                                                    ) VALUES ('00116')");
-            cmd = "";
-            sender = "";
-            callfloor = "";
-        }*/
-        if(elechange == 1)
-        {
-            elechange = 0;
-            sprintf(mysql_command, "INSERT INTO  lift_state ( device_id, floor,door,state) VALUES ('%s', '%s', '%s', '%s')", \
-                                    sqlID.c_str(),floo.c_str(), doo.c_str(), state.c_str() );
-            printf("%s\n", mysql_command);
-            if (mysql_query(conn, mysql_command) != 0)
-            {
-                mysql_close(conn);
-                conn = NULL;
-                printf("Insert Failure\n");            
-                conn = mysql_init(NULL);
-
-                /* Connect to database */
-                if (!mysql_real_connect(conn, server, user, password, database, 0, NULL, 0))
-                {
-                    printf("Failed to connect MySQL Server %s. Error: %s", server, mysql_error(conn));
-                    // continue;
-                }
-            }
-            else
-            {
-                printf("insert state ok\n");
-            }
-
-        }
-        if(cmdchange == 1)
-        {
-            cmdchange = 0;
-            sprintf(mysql_command, "INSERT INTO  lift_state (device_id,cmd, sender, callfloor) VALUES ('%s', '%s', '%s', '%s')", \
-                                        sqlID.c_str(), cmd.c_str(), sender.c_str(), callfloor.c_str());
-            cmd = "";
-            sender = "";
-            callfloor = "";
+            mysql_command = sqlQueue.pop();
             printf("%s\n", mysql_command);
             if (mysql_query(conn, mysql_command) != 0)
             {
@@ -351,11 +313,15 @@ timestamp
             {
                 printf("insert cmd ok\n");
             }
+            std::this_thread::sleep_for(chrono::seconds(1)); 
         }
+        else
+        {
+            std::this_thread::sleep_for(chrono::milliseconds(10)); 
+        }     
 
-        
-        sleep(3);
     }
+    
 
     return 0;
 }
